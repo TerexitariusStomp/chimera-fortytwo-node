@@ -1,0 +1,85 @@
+version: "3.8"
+
+services:
+  # ─── Chimera-Fortytwo Node ───────────────────────────────────────────────
+  chimera-node:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: chimera-fortytwo-node:latest
+    container_name: chimera-fortytwo-node
+    restart: unless-stopped
+
+    # Security hardening
+    read_only: true
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    network_mode: bridge
+
+    environment:
+      - CHIMERA_RPC_URL=${CHIMERA_RPC_URL:-http://host.docker.internal:8545}
+      - COORDINATOR_WS_URL=${COORDINATOR_WS_URL:-ws://host.docker.internal:8080}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+      - NODE_NAME=${NODE_NAME:-chimera-node-docker}
+      - NODE_REGION=${NODE_REGION:-docker}
+      - INFERENCE_BACKEND=${INFERENCE_BACKEND:-mock}
+      - PYTHON_INFERENCE_URL=${PYTHON_INFERENCE_URL:-http://host.docker.internal:5000}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+
+    ports:
+      - "8080:8080"
+
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+      - /var/cache:size=50M,mode=755
+
+    volumes:
+      - chimera_node_data:/app/models/cache
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ─── Optional: Python Inference Bridge ────────────────────────────────────
+  inference-bridge:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: py-bridge
+    image: chimera-inference-bridge:latest
+    container_name: chimera-inference-bridge
+    restart: unless-stopped
+
+    read_only: true
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    network_mode: bridge
+
+    environment:
+      - MODEL_ID=${DEFAULT_MODEL:-phi-3-mini-4k-instruct}
+      - CACHE_DIR=/app/models/cache
+
+    ports:
+      - "5000:5000"
+
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+
+    volumes:
+      - chimera_model_cache:/app/models/cache
+
+volumes:
+  chimera_node_data:
+    driver: local
+  chimera_model_cache:
+    driver: local

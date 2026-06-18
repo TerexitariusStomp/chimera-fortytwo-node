@@ -1,0 +1,15 @@
+# Python Inference Bridge Dependencies
+# Install: pip install -r requirements.txt
+
+# Web framework
+fl>=2.3.0
+
+# Optional: ONNX Runtime for local model inference
+# onnxruntime>=1.17.0
+
+# Optional: Transformers for HuggingFace model loading
+# transformers>=4.38.0
+# torch>=2.2.0
+
+# Optional: GGUF support
+# llama-cpp-python>=0.2.0

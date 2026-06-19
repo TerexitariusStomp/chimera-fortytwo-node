@@ -77,13 +77,13 @@ export default function App() {
       {/* Glass blur header matching localchimera.com */}
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/5 bg-[#030308]/88 backdrop-blur-xl">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#00e5ff]/10 flex items-center justify-center text-[#00e5ff] text-sm font-bold">C</div>
+          <a href="/" className="flex items-center gap-3">
+            <img src="/chimeralogo-header.png" alt="Chimera" className="w-8 h-8 rounded-lg object-cover" />
             <div>
               <h1 className="text-base font-bold tracking-wide text-[#e8e2d8]">Chimera</h1>
               <p className="text-[10px] text-[#7a7468] -mt-0.5">Inference Network</p>
             </div>
-          </div>
+          </a>
           {/* Navigation Tabs */}
           <nav className="hidden md:flex items-center gap-1">
             {[

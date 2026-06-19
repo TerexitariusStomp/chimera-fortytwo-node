@@ -14,7 +14,7 @@ export interface ContractConfig {
 export const CONTRACTS: ContractConfig = {
   computeRegistry: 'f8c969bfa7553a23deab0f77fb43210d4810156a977e0cc2695b23182e5b41d0',
   orderBook: 'cecfc698508213f63e7e7fe6f0729b090af23c87c7e444db7fc90be73736e399',
-  escrowVault: '6482d6e9634eab3258c147facc165223fdc2757113590e9c8d468486849fcbb8',
+  escrowVault: 'a2b36559e7da9f0a3fc10afc23eceb54022ab41649ad976c52802e37ad26700b',
   reputation: 'fd0bf02161433c13c3070b7d0ea383c976bcbc799413638b4fedc703d4efa1db',
 };
 
@@ -132,21 +132,23 @@ export function parsePemKey(pem: string): any {
   }
 }
 
-async function getAccountMainPurse(accountHash: string): Promise<any> {
+export async function getAccountMainPurse(accountHash: string): Promise<string | null> {
   try {
     const res = await fetch(RPC_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         jsonrpc: '2.0', id: 1,
-        method: 'state_get_entity',
-        params: { entity_identifier: { AccountHash: accountHash } },
+        method: 'state_get_account_info',
+        params: { account_identifier: accountHash },
       }),
     }).then(r => r.json());
-    const mainPurse = res.result?.entity?.Account?.main_purse;
-    if (!mainPurse) return null;
-    const urefObj = sdk.URef.fromString(mainPurse);
-    return sdk.CLValue.newCLUref(urefObj);
+    const mainPurse = res.result?.account?.main_purse;
+    if (!mainPurse) {
+      console.error('[getAccountMainPurse] no main_purse in response:', res);
+      return null;
+    }
+    return mainPurse;
   } catch (e: any) {
     console.error('[getAccountMainPurse] error:', e.message);
     return null;
@@ -420,9 +422,9 @@ async function getLatestStateRootHash(): Promise<string> {
   const res = await fetch(RPC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chain_get_block', params: null }),
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chain_get_state_root_hash', params: null }),
   }).then(r => r.json());
-  return res.result?.block?.header?.state_root_hash || '';
+  return res.result?.state_root_hash || '';
 }
 
 export async function queryDictionary(uref: string, key: string): Promise<any> {

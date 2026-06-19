@@ -21,6 +21,17 @@ interface Job {
   state: string;
   validUntil: number;
   createdAt: number;
+  responseHash: string;
+  responseText: string;
+}
+
+async function fetchInferenceText(jobId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`http://localhost:3006/result?job_id=${encodeURIComponent(jobId)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.text || null;
+  } catch { return null; }
 }
 
 const STATE_LABELS: Record<string, string> = {
@@ -43,20 +54,40 @@ export default function EscrowVaultTab({ provider, publicKeyHex, contractHash, a
       const keys = await getContractNamedKeys(contractHash);
       const jobsUref = keys['jobs_dict'];
       const pendingUref = keys['pending_jobs'];
+      const consumerUref = keys['consumer_jobs'];
+      const providerUref = keys['provider_jobs'];
       if (!jobsUref || !pendingUref) { setJobs([]); return; }
 
+      const myHash = accountHash.replace('account-hash-', '');
+
+      // Gather job IDs from all lists (pending, consumer's jobs, provider's jobs)
+      const allJobIds = new Set<string>();
       const pendingList: string[] = await queryDictionary(pendingUref, 'list') || [];
+      pendingList.forEach(id => allJobIds.add(id));
+
+      // Get consumer's jobs
+      if (consumerUref) {
+        const consumerList: string[] = await queryDictionary(consumerUref, myHash) || [];
+        consumerList.forEach(id => allJobIds.add(id));
+      }
+      // Get provider's jobs (router)
+      if (providerUref) {
+        const routerHash = 'f227d4fb7c50164d363c5461ad0044ef8f3b8ad5ee7072b87384e101a2a4263d';
+        const providerList: string[] = await queryDictionary(providerUref, routerHash) || [];
+        providerList.forEach(id => allJobIds.add(id));
+      }
+
       const loaded: Job[] = [];
-      for (const jobId of pendingList) {
-        const raw = await queryDictionary(jobsUref, `${jobId}:consumer`);
-        if (!raw) continue;
-        // Query each field separately
+      for (const jobId of allJobIds) {
         const consumer = await queryDictionary(jobsUref, `${jobId}:consumer`);
+        if (!consumer) continue;
         const providerAddr = await queryDictionary(jobsUref, `${jobId}:provider`);
         const amount = await queryDictionary(jobsUref, `${jobId}:amount`);
         const stateRaw = await queryDictionary(jobsUref, `${jobId}:state`);
         const validUntil = await queryDictionary(jobsUref, `${jobId}:valid_until`);
         const createdAt = await queryDictionary(jobsUref, `${jobId}:created_at`);
+        const responseHash = await queryDictionary(jobsUref, `${jobId}:response_hash`);
+        const text = await fetchInferenceText(jobId);
         loaded.push({
           id: jobId,
           consumer: String(consumer || ''),
@@ -65,15 +96,20 @@ export default function EscrowVaultTab({ provider, publicKeyHex, contractHash, a
           state: STATE_LABELS[String(stateRaw ?? '')] || String(stateRaw ?? 'unknown'),
           validUntil: Number(validUntil || 0),
           createdAt: Number(createdAt || 0),
+          responseHash: String(responseHash || ''),
+          responseText: text || '',
         });
       }
-      setJobs(loaded);
+      // Only show jobs where the connected wallet is the consumer
+      const myJobs = loaded.filter(job => job.consumer === myHash);
+      myJobs.sort((a, b) => b.createdAt - a.createdAt);
+      setJobs(myJobs);
     } catch (e) {
       console.error('Failed to load jobs:', e);
     } finally {
       setLoadingJobs(false);
     }
-  }, [contractHash]);
+  }, [contractHash, accountHash]);
 
   useEffect(() => {
     loadJobs();
@@ -116,12 +152,24 @@ export default function EscrowVaultTab({ provider, publicKeyHex, contractHash, a
           return (
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {merged.map((job) => (
-                <div key={job.id} className="flex items-center justify-between text-xs bg-muted p-2 rounded">
-                  <div className="flex items-center gap-2">
-                    <Badge variant={job.state === 'pending' ? 'warning' : job.state === 'settled' ? 'success' : job.state === 'refunded' ? 'default' : job.state === 'disputed' ? 'error' : 'default'}>{job.state}</Badge>
-                    <span className="font-mono truncate max-w-[120px]">{job.id}</span>
+                <div key={job.id} className="text-xs bg-muted p-2 rounded space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={job.state === 'pending' ? 'warning' : job.state === 'settled' ? 'success' : job.state === 'refunded' ? 'default' : job.state === 'disputed' ? 'error' : 'default'}>{job.state}</Badge>
+                      <span className="font-mono truncate max-w-[120px]">{job.id}</span>
+                    </div>
+                    <div className="text-muted-foreground">{job.amount} motes</div>
                   </div>
-                  <div className="text-muted-foreground">{job.amount} motes</div>
+                  {job.responseText && (
+                    <div className="text-green-700 text-xs mt-1" title={job.responseText}>
+                      <span className="font-semibold">Response:</span> {job.responseText.length > 100 ? job.responseText.slice(0, 100) + '...' : job.responseText}
+                    </div>
+                  )}
+                  {!job.responseText && job.responseHash && (
+                    <div className="text-muted-foreground truncate text-xs mt-1" title={job.responseHash}>
+                      Hash: {job.responseHash}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -132,16 +180,39 @@ export default function EscrowVaultTab({ provider, publicKeyHex, contractHash, a
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <EntryPointCard title="Create Job" contract="EscrowVault" contractHash={contractHash} provider={provider} publicKeyHex={publicKeyHex} onTx={onTx}>
           {({ submit }) => {
-            const [consumer, setConsumer] = useState(accountHash); const [providerAddr, setProviderAddr] = useState(accountHash); const [amount, setAmount] = useState('1000000000000000000'); const [feeBps, setFeeBps] = useState('100'); const [orderId, setOrderId] = useState('order-1');
-            return <form onSubmit={(e) => { e.preventDefault(); const jobId = `job:${consumer.replace('account-hash-','')}:0`; setLocalJobs(prev => [{ id: jobId, consumer, provider: providerAddr, amount, state: 'pending', validUntil: Math.floor(Date.now()/1000) + 3600, createdAt: Math.floor(Date.now()/1000) }, ...prev]); submit('create_job', {
-              consumer: sdk.CLValue.newCLByteArray(accountHashToBytes(consumer)), provider: sdk.CLValue.newCLByteArray(accountHashToBytes(providerAddr)),
+            const [consumer, setConsumer] = useState(accountHash);
+            const [amount, setAmount] = useState('2500000000');
+            const [feeBps, setFeeBps] = useState('100');
+            const [orderId, setOrderId] = useState('order-1');
+            const [autoRoute, setAutoRoute] = useState(true);
+            const [customProvider, setCustomProvider] = useState('');
+            // Router auto-assign address — default for network routing
+            const ROUTER_PROVIDER = 'f227d4fb7c50164d363c5461ad0044ef8f3b8ad5ee7072b87384e101a2a4263d';
+            const providerAddr = autoRoute ? ROUTER_PROVIDER : (customProvider || accountHash);
+            return <form onSubmit={(e) => { e.preventDefault(); const jobId = `job:${consumer.replace('account-hash-','')}:0`; setLocalJobs(prev => [{ id: jobId, consumer, provider: providerAddr, amount, state: 'pending', validUntil: Math.floor(Date.now()/1000) + 3600, createdAt: Math.floor(Date.now()/1000), responseHash: '', responseText: '' }, ...prev]); submit('create_job', {
+              consumer: sdk.CLValue.newCLByteArray(accountHashToBytes(consumer)),
+              provider: sdk.CLValue.newCLByteArray(accountHashToBytes(providerAddr)),
               amount: sdk.CLValue.newCLUInt512(amount), provider_fee_bps: sdk.CLValue.newCLUint64(feeBps), order_id: sdk.CLValue.newCLString(orderId),
             }); }} className="space-y-2">
               <Input label="Consumer Account Hash" value={consumer} onChange={setConsumer} />
-              <Input label="Provider Account Hash" value={providerAddr} onChange={setProviderAddr} />
               <Input label="Amount (motes)" value={amount} onChange={setAmount} />
               <Input label="Provider Fee BPS" value={feeBps} onChange={setFeeBps} />
-              <Input label="Order ID" value={orderId} onChange={setOrderId} />
+              <Input label="Prompt / Order ID" value={orderId} onChange={setOrderId} />
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-1 text-xs cursor-pointer">
+                  <input type="checkbox" checked={autoRoute} onChange={(e) => setAutoRoute(e.target.checked)} className="rounded" />
+                  Auto-route to inference network
+                </label>
+              </div>
+              {!autoRoute && (
+                <Input label="Provider Account Hash (optional)" value={customProvider} onChange={setCustomProvider} placeholder="Leave empty to use your own account" />
+              )}
+              {autoRoute && (
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                  Will be auto-assigned to next available inference node
+                </div>
+              )}
               <Button type="submit" disabled={!canSign} className="w-full"><Send className="h-4 w-4 mr-1" />Create Job</Button>
             </form>;
           }}

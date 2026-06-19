@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getAccountBalance, queryContractNamedKeys, CONTRACTS } from './casper-client';
 import { connectWallet, disconnectWallet, isWalletInstalled } from './casper-wallet';
-import { cn } from './lib/utils';
-import { LayoutDashboard, Server, BookOpen, Shield, Award, Wallet } from 'lucide-react';
-import { Button } from './components/ui';
+import { Wallet } from 'lucide-react';
+import { Button, Badge } from './components/ui';
 import OverviewTab from './components/OverviewTab';
 import ComputeRegistryTab from './components/ComputeRegistryTab';
 import OrderBookTab from './components/OrderBookTab';
@@ -12,7 +11,6 @@ import ReputationTab from './components/ReputationTab';
 import type { TxRecord } from './types';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'compute' | 'orderbook' | 'escrow' | 'reputation'>('overview');
   const [provider, setProvider] = useState<any>(null);
   const [publicKeyHex, setPublicKeyHex] = useState('');
   const [accountHash, setAccountHash] = useState('');
@@ -62,67 +60,106 @@ export default function App() {
     });
   }, []);
 
-  const tabs = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'compute', label: 'Compute Registry', icon: Server },
-    { id: 'orderbook', label: 'Order Book', icon: BookOpen },
-    { id: 'escrow', label: 'Escrow Vault', icon: Shield },
-    { id: 'reputation', label: 'Reputation', icon: Award },
-  ] as const;
-
   const isConnected = !!provider && !!publicKeyHex;
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
-      <aside className="w-64 border-r bg-muted/40 flex flex-col">
-        <div className="p-4 border-b">
-          <h1 className="text-lg font-bold flex items-center gap-2"><LayoutDashboard className="h-5 w-5" />Chimera Dashboard</h1>
-          <p className="text-xs text-muted-foreground mt-1">Casper Testnet</p>
-        </div>
-        <nav className="flex-1 p-2 space-y-1">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
-                className={cn('w-full flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  activeTab === tab.id ? 'bg-primary text-primary-foreground' : 'hover:bg-accent hover:text-accent-foreground')}>
-                <Icon className="h-4 w-4" />{tab.label}
-              </button>
-            );
-          })}
-        </nav>
-        <div className="p-4 border-t space-y-2">
-          {isConnected ? (
-            <>
-              <div className="space-y-1">
-                <div className="text-xs font-medium text-muted-foreground">Account</div>
-                <div className="text-xs font-mono break-all">{accountHash}</div>
-                <div className="text-xs font-mono text-muted-foreground">{balance}</div>
-              </div>
-              <Button variant="outline" onClick={disconnect} className="w-full text-xs">Disconnect</Button>
-            </>
-          ) : (
-            <>
-              {!walletDetected && (
-                <div className="text-xs text-red-600">
-                  Casper Wallet extension not detected.
-                  <a href="https://chromewebstore.google.com/detail/casper-wallet/" target="_blank" rel="noopener noreferrer" className="underline">Install it here</a>.
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Top Header */}
+      <header className="border-b bg-muted/40">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">Chimera Inference Network</h1>
+            <p className="text-xs text-muted-foreground">Casper Testnet — Auto-routed AI inference</p>
+          </div>
+          {/* Navigation Tabs */}
+          <nav className="hidden md:flex items-center gap-1">
+            {[
+              { id: 'overview', label: 'Overview' },
+              { id: 'escrow', label: 'Inference' },
+              { id: 'compute', label: 'Compute' },
+              { id: 'orderbook', label: 'Order Book' },
+              { id: 'reputation', label: 'Reputation' },
+            ].map((tab) => (
+              <a key={tab.id} href={`#${tab.id}`}
+                className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground text-muted-foreground">
+                {tab.label}
+              </a>
+            ))}
+          </nav>
+          <div className="flex items-center gap-3">
+            {isConnected ? (
+              <>
+                <div className="text-right">
+                  <div className="text-xs font-mono text-muted-foreground">{accountHash.slice(0, 20)}...{accountHash.slice(-8)}</div>
+                  <div className="text-xs font-mono">{balance}</div>
                 </div>
-              )}
-              {walletError && <div className="text-xs text-red-600">{walletError}</div>}
-              <Button onClick={connect} className="w-full"><Wallet className="h-4 w-4 mr-1" />Connect Wallet</Button>
-            </>
+                <Button variant="outline" onClick={disconnect} className="text-xs">Disconnect</Button>
+              </>
+            ) : (
+              <>
+                {walletError && <div className="text-xs text-red-600">{walletError}</div>}
+                <Button onClick={connect} className="text-xs"><Wallet className="h-3 w-3 mr-1" />Connect Wallet</Button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content — Single Page with all sections */}
+      <main className="max-w-5xl mx-auto px-6 py-6 space-y-8">
+        {!walletDetected && !isConnected && (
+          <div className="text-sm text-red-600 bg-red-50 p-3 rounded">
+            Casper Wallet extension not detected.
+            <a href="https://chromewebstore.google.com/detail/casper-wallet/" target="_blank" rel="noopener noreferrer" className="underline ml-1">Install it here</a>.
+          </div>
+        )}
+
+        {/* Section: Overview */}
+        <section id="overview" className="space-y-4">
+          <OverviewTab contractKeys={contractKeys} txHistory={txHistory} publicKeyStr={publicKeyHex} accountHash={accountHash} balance={balance} />
+        </section>
+
+        {/* Section: Escrow Vault (Inference) */}
+        <section id="escrow" className="space-y-4">
+          <EscrowVaultTab provider={provider} publicKeyHex={publicKeyHex} contractHash={CONTRACTS.escrowVault} accountHash={accountHash} onTx={updateTx} />
+        </section>
+
+        {/* Section: Compute Registry */}
+        <section id="compute" className="space-y-4">
+          <ComputeRegistryTab provider={provider} publicKeyHex={publicKeyHex} contractHash={CONTRACTS.computeRegistry} onTx={updateTx} />
+        </section>
+
+        {/* Section: Order Book */}
+        <section id="orderbook" className="space-y-4">
+          <OrderBookTab provider={provider} publicKeyHex={publicKeyHex} contractHash={CONTRACTS.orderBook} escrowVaultHash={CONTRACTS.escrowVault} accountHash={accountHash} onTx={updateTx} />
+        </section>
+
+        {/* Section: Reputation */}
+        <section id="reputation" className="space-y-4">
+          <ReputationTab provider={provider} publicKeyHex={publicKeyHex} contractHash={CONTRACTS.reputation} onTx={updateTx} />
+        </section>
+
+        {/* Recent Transactions */}
+        <section id="transactions" className="space-y-2">
+          <h3 className="font-semibold text-sm">Recent Transactions</h3>
+          {txHistory.length === 0 ? <p className="text-sm text-muted-foreground">No transactions yet</p> : (
+            <div className="space-y-2">
+              {txHistory.slice(0, 5).map((tx) => (
+                <div key={tx.id} className="flex items-center justify-between text-xs bg-muted p-2 rounded">
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <div className="font-medium">{tx.contract} :: {tx.entryPoint}</div>
+                      <a href={`https://testnet.cspr.live/deploy/${tx.deployHash}`} target="_blank" rel="noopener noreferrer" className="font-mono text-muted-foreground hover:text-blue-600 hover:underline">
+                        {tx.deployHash}
+                      </a>
+                    </div>
+                  </div>
+                  <Badge variant={tx.status === 'success' ? 'success' : tx.status === 'error' ? 'error' : 'warning'}>{tx.status}</Badge>
+                </div>
+              ))}
+            </div>
           )}
-        </div>
-      </aside>
-      <main className="flex-1 overflow-auto">
-        <div className="p-6 max-w-5xl mx-auto space-y-6">
-          {activeTab === 'overview' && <OverviewTab contractKeys={contractKeys} txHistory={txHistory} publicKeyStr={publicKeyHex} accountHash={accountHash} balance={balance} />}
-          {activeTab === 'compute' && <ComputeRegistryTab provider={provider} publicKeyHex={publicKeyHex} contractHash={CONTRACTS.computeRegistry} onTx={updateTx} />}
-          {activeTab === 'orderbook' && <OrderBookTab provider={provider} publicKeyHex={publicKeyHex} contractHash={CONTRACTS.orderBook} escrowVaultHash={CONTRACTS.escrowVault} accountHash={accountHash} onTx={updateTx} />}
-          {activeTab === 'escrow' && <EscrowVaultTab provider={provider} publicKeyHex={publicKeyHex} contractHash={CONTRACTS.escrowVault} accountHash={accountHash} onTx={updateTx} />}
-          {activeTab === 'reputation' && <ReputationTab provider={provider} publicKeyHex={publicKeyHex} contractHash={CONTRACTS.reputation} onTx={updateTx} />}
-        </div>
+        </section>
       </main>
     </div>
   );

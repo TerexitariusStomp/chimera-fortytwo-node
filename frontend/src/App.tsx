@@ -10,6 +10,16 @@ import EscrowVaultTab from './components/EscrowVaultTab';
 import ReputationTab from './components/ReputationTab';
 import type { TxRecord } from './types';
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div className="h-px flex-1 bg-white/5" />
+      <h2 className="text-sm font-semibold tracking-wide uppercase text-[#7a7468]">{children}</h2>
+      <div className="h-px flex-1 bg-white/5" />
+    </div>
+  );
+}
+
 export default function App() {
   const [provider, setProvider] = useState<any>(null);
   const [publicKeyHex, setPublicKeyHex] = useState('');
@@ -63,13 +73,16 @@ export default function App() {
   const isConnected = !!provider && !!publicKeyHex;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Top Header */}
-      <header className="border-b bg-muted/40">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">Chimera Inference Network</h1>
-            <p className="text-xs text-muted-foreground">Casper Testnet — Auto-routed AI inference</p>
+    <div className="min-h-screen bg-[#030308] text-[#e8e2d8]">
+      {/* Glass blur header matching localchimera.com */}
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/5 bg-[#030308]/88 backdrop-blur-xl">
+        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-[#00e5ff]/10 flex items-center justify-center text-[#00e5ff] text-sm font-bold">C</div>
+            <div>
+              <h1 className="text-base font-bold tracking-wide text-[#e8e2d8]">Chimera</h1>
+              <p className="text-[10px] text-[#7a7468] -mt-0.5">Inference Network</p>
+            </div>
           </div>
           {/* Navigation Tabs */}
           <nav className="hidden md:flex items-center gap-1">
@@ -81,7 +94,7 @@ export default function App() {
               { id: 'reputation', label: 'Reputation' },
             ].map((tab) => (
               <a key={tab.id} href={`#${tab.id}`}
-                className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground text-muted-foreground">
+                className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors hover:bg-white/5 hover:text-[#00e5ff] text-[#7a7468]">
                 {tab.label}
               </a>
             ))}
@@ -90,66 +103,74 @@ export default function App() {
             {isConnected ? (
               <>
                 <div className="text-right">
-                  <div className="text-xs font-mono text-muted-foreground">{accountHash.slice(0, 20)}...{accountHash.slice(-8)}</div>
-                  <div className="text-xs font-mono">{balance}</div>
+                  <div className="text-[10px] font-mono text-[#7a7468]">{accountHash.slice(0, 14)}...{accountHash.slice(-6)}</div>
+                  <div className="text-[10px] font-mono text-[#4ade80]">{balance}</div>
                 </div>
-                <Button variant="outline" onClick={disconnect} className="text-xs">Disconnect</Button>
+                <Button variant="outline" onClick={disconnect} className="text-[10px] h-7 px-2 border-white/10 hover:bg-white/5">Disconnect</Button>
               </>
             ) : (
               <>
-                {walletError && <div className="text-xs text-red-600">{walletError}</div>}
-                <Button onClick={connect} className="text-xs"><Wallet className="h-3 w-3 mr-1" />Connect Wallet</Button>
+                {walletError && <div className="text-[10px] text-red-400">{walletError}</div>}
+                <Button onClick={connect} className="text-[10px] h-7 px-3 bg-[#00e5ff]/10 text-[#00e5ff] border border-[#00e5ff]/20 hover:bg-[#00e5ff]/20"><Wallet className="h-3 w-3 mr-1" />Connect</Button>
               </>
             )}
           </div>
         </div>
       </header>
 
+      {/* Spacer for fixed header */}
+      <div className="h-16" />
+
       {/* Main Content — Single Page with all sections */}
-      <main className="max-w-5xl mx-auto px-6 py-6 space-y-8">
+      <main className="max-w-5xl mx-auto px-6 py-8 space-y-10">
         {!walletDetected && !isConnected && (
-          <div className="text-sm text-red-600 bg-red-50 p-3 rounded">
+          <div className="text-sm text-red-400 bg-red-500/5 border border-red-500/10 p-3 rounded-lg">
             Casper Wallet extension not detected.
-            <a href="https://chromewebstore.google.com/detail/casper-wallet/" target="_blank" rel="noopener noreferrer" className="underline ml-1">Install it here</a>.
+            <a href="https://chromewebstore.google.com/detail/casper-wallet/" target="_blank" rel="noopener noreferrer" className="underline ml-1 text-[#00e5ff]">Install it here</a>.
           </div>
         )}
 
         {/* Section: Overview */}
         <section id="overview" className="space-y-4">
+          <SectionTitle>Overview</SectionTitle>
           <OverviewTab contractKeys={contractKeys} txHistory={txHistory} publicKeyStr={publicKeyHex} accountHash={accountHash} balance={balance} />
         </section>
 
         {/* Section: Escrow Vault (Inference) */}
         <section id="escrow" className="space-y-4">
+          <SectionTitle>Inference</SectionTitle>
           <EscrowVaultTab provider={provider} publicKeyHex={publicKeyHex} contractHash={CONTRACTS.escrowVault} accountHash={accountHash} onTx={updateTx} />
         </section>
 
         {/* Section: Compute Registry */}
         <section id="compute" className="space-y-4">
+          <SectionTitle>Compute Registry</SectionTitle>
           <ComputeRegistryTab provider={provider} publicKeyHex={publicKeyHex} contractHash={CONTRACTS.computeRegistry} onTx={updateTx} />
         </section>
 
         {/* Section: Order Book */}
         <section id="orderbook" className="space-y-4">
+          <SectionTitle>Order Book</SectionTitle>
           <OrderBookTab provider={provider} publicKeyHex={publicKeyHex} contractHash={CONTRACTS.orderBook} escrowVaultHash={CONTRACTS.escrowVault} accountHash={accountHash} onTx={updateTx} />
         </section>
 
         {/* Section: Reputation */}
         <section id="reputation" className="space-y-4">
+          <SectionTitle>Reputation</SectionTitle>
           <ReputationTab provider={provider} publicKeyHex={publicKeyHex} contractHash={CONTRACTS.reputation} onTx={updateTx} />
         </section>
 
         {/* Recent Transactions */}
-        <section id="transactions" className="space-y-2">
-          <h3 className="font-semibold text-sm">Recent Transactions</h3>
-          {txHistory.length === 0 ? <p className="text-sm text-muted-foreground">No transactions yet</p> : (
+        <section id="transactions" className="space-y-3">
+          <SectionTitle>Recent Transactions</SectionTitle>
+          {txHistory.length === 0 ? <p className="text-sm text-[#7a7468]">No transactions yet</p> : (
             <div className="space-y-2">
               {txHistory.slice(0, 5).map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between text-xs bg-muted p-2 rounded">
+                <div key={tx.id} className="flex items-center justify-between text-xs bg-white/[0.03] border border-white/5 p-3 rounded-lg hover:bg-white/[0.05] transition-colors">
                   <div className="flex items-center gap-2">
                     <div>
-                      <div className="font-medium">{tx.contract} :: {tx.entryPoint}</div>
-                      <a href={`https://testnet.cspr.live/deploy/${tx.deployHash}`} target="_blank" rel="noopener noreferrer" className="font-mono text-muted-foreground hover:text-blue-600 hover:underline">
+                      <div className="font-medium text-[#e8e2d8]">{tx.contract} :: {tx.entryPoint}</div>
+                      <a href={`https://testnet.cspr.live/deploy/${tx.deployHash}`} target="_blank" rel="noopener noreferrer" className="font-mono text-[#7a7468] hover:text-[#00e5ff] transition-colors">
                         {tx.deployHash}
                       </a>
                     </div>
@@ -161,6 +182,13 @@ export default function App() {
           )}
         </section>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-white/5 mt-12">
+        <div className="max-w-5xl mx-auto px-6 py-6 text-center text-xs text-[#7a7468]">
+          Chimera Inference Network — Casper Testnet
+        </div>
+      </footer>
     </div>
   );
 }

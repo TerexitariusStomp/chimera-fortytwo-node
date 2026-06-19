@@ -41,10 +41,10 @@ export function TextArea({ label, value, onChange, placeholder, rows = 3 }: any)
 
 export function Badge({ children, variant = 'default' }: any) {
   const variants: any = {
-    default: 'bg-primary/10 text-primary',
-    success: 'bg-green-100 text-green-800',
-    error: 'bg-red-100 text-red-800',
-    warning: 'bg-yellow-100 text-yellow-800',
+    default: 'bg-primary/10 text-[#00e5ff]',
+    success: 'bg-[#22c55e]/10 text-[#4ade80]',
+    error: 'bg-red-500/10 text-red-400',
+    warning: 'bg-yellow-500/10 text-yellow-400',
   };
-  return <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', variants[variant])}>{children}</span>;
+  return <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border border-white/5', variants[variant])}>{children}</span>;
 }

@@ -4,7 +4,7 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/chimera-fortytwo-node/',
+  base: './',
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

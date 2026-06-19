@@ -1,7 +1,7 @@
 // @ts-nocheck
 import * as sdk from 'casper-js-sdk';
 
-const RPC_URL = 'http://localhost:7778/rpc';
+const RPC_URL = 'https://rpc.testnet.casper.network/rpc';
 const CHAIN_NAME = 'casper-test';
 
 export interface ContractConfig {

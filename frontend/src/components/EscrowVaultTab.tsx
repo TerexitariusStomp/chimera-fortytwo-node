@@ -27,7 +27,7 @@ interface Job {
 
 async function fetchInferenceText(jobId: string): Promise<string | null> {
   try {
-    const res = await fetch(`http://localhost:3006/result?job_id=${encodeURIComponent(jobId)}`);
+    const res = await fetch(`https://api.localchimera.com/result?job_id=${encodeURIComponent(jobId)}`);
     if (!res.ok) return null;
     const data = await res.json();
     return data.text || null;
